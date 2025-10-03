@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+    <title>Mando de Control de Cheques Emitidos G.S.A.</title>
+    <style>
+        :root {
+            --color-primary: #4e73df;     /* Un azul más profesional */
+            --color-secondary: #1cc88a;   /* Verde menta para acciones secundarias */
+            --color-accent-1: #f6c23e;    /* Amarillo/Naranja para alertas o destacados */
+            --color-accent-2: #6f42c1;    /* Púrpura para categorías */
+            --color-success: #1cc88a;     /* Verde para éxito */
+            --color-danger: #e74a3b;      /* Rojo para errores y alertas */
+            --text-dark: #3a3f51;         /* Un negro más suave y profundo */
+            --text-light: #858796;        /* Gris para texto secundario */
+            --bg-main: #f4f7fc;           /* Un fondo ligeramente más azulado */
+            --bg-card: #ffffff;
+            --border-color: #e3e6f0;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; flex-direction: column; align-items: center; background-color: var(--bg-main); color: var(--text-dark); padding-bottom: 50px; }
+        .dashboard-header { text-align: center; margin-bottom: 20px; }
+        .dashboard-header h1 { font-size: 2.2em; color: var(--text-dark); margin-bottom: 5px; }
+        .dashboard-header p { font-size: 1.2em; color: var(--text-light); }
+
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 40px; width: 90%; max-width: 1400px; margin-top: 50px; }
+        .chart-card, .control-panel, .table-container {
+            background-color: var(--bg-card); border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 8px rgba(0,0,0,0.06);
+            padding: 20px; position: relative; transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .chart-card:hover, .control-panel:hover, .table-container:hover { transform: translateY(-5px); box-shadow: 0 2px 4px rgba(0,0,0,0.04), 0 8px 16px rgba(0,0,0,0.08); }
+        .chart-card.hidden { opacity: 0; transform: scale(0.95); height: 0; padding: 0; margin: 0; overflow: hidden; border: none; }
+        .chart-back-btn { position: absolute; top: 20px; left: 20px; background: #f1f1f1; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 1.2em; line-height: 30px; text-align: center; display: none; z-index: 20; }
+        .chart-back-btn:hover { background: #e2e2e2; }
+        .chart-card h2 { text-align: center; color: var(--text-light); }
+
+        .metrics-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; width: 90%; max-width: 1400px; margin-top: 30px; }
+        .metric-card {
+            background-color: var(--bg-card);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-left: 5px solid #ccc; 
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-left-color 0.3s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04), 0 6px 12px rgba(0,0,0,0.08);
+        }
+        .metric-icon { flex-shrink: 0; width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .metric-icon svg { width: 22px; height: 22px; }
+        .metric-content { flex-grow: 1; }
+        .metric-header { display: flex; justify-content: space-between; align-items: baseline; }
+        .kpi-comparison { font-size: 0.8em; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+        .kpi-comparison.positive { background-color: #eafaf1; color: var(--color-success); }
+        .kpi-comparison.negative { background-color: #fdecea; color: var(--color-danger); }
+        .kpi-comparison.neutral { background-color: #f4f6f8; color: var(--text-light); }
+        .metric-card h3 { margin: 0; color: var(--text-light); font-size: 0.9em; font-weight: 600; text-transform: uppercase; }
+        .metric-card p { font-size: 1.3em; margin: 5px 0 0 0; color: var(--text-dark); font-weight: 700; overflow-wrap: break-word; }
+        .mc-importe { border-left-color: var(--color-primary); }
+        .mc-pagado { border-left-color: var(--color-success); }
+        .mc-saldo { border-left-color: var(--color-accent-1); }
+        .mc-saldo.alert { border-left-color: var(--color-danger); }
+        .mc-saldo.alert h3 { color: var(--color-danger); }
+        .mc-saldo.alert .metric-icon { background-color: #fdecea; }
+        .mc-vencido { border-left-color: var(--color-danger); cursor: pointer; }
+        .mc-vencido h3 { color: var(--color-danger); }
+        .mc-vencido .metric-icon { background-color: #fdecea; }
+        .mc-vencido .metric-icon svg { stroke: var(--color-danger); }
+
+        .mc-cheques { border-left-color: var(--color-accent-2); }
+        .control-panel { width: 90%; max-width: 1400px; margin-bottom: 20px; display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+        .filters-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+        .actions-group { display: flex; flex-direction: column; gap: 15px; }
+        .control-panel select, .control-panel input[type="text"] { width: 100%; padding: 10px; font-size: 1em; border-radius: 5px; border: 1px solid var(--border-color); background-color: #fdfdfd; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        .control-panel select { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right .75rem center; background-size: 16px 12px; }
+        .checkbox-container { display: flex; align-items: center; gap: 8px; }
+        .buttons-container { display: flex; gap: 10px; }
+        .action-btn { flex-grow: 1; padding: 10px; font-size: 1em; font-weight: bold; cursor: pointer; color: white; border: none; border-radius: 5px; text-align: center; }
+        #clear-filters-btn { background-color: var(--color-danger); display: none; } #clear-filters-btn:hover { background-color: #c0392b; }
+        #print-btn { background-color: var(--color-primary); } #print-btn:hover { background-color: #2e59d9; }
+
+        /* --- Estilos para la Ventana Modal --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-content { background-color: var(--bg-card); padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 600px; transform: translateY(-20px) scale(0.98); transition: transform 0.3s ease; }
+        .modal-overlay.visible .modal-content { transform: translateY(0) scale(1); }
+        .modal-content h2 { text-align: center; margin-top: 0; color: var(--text-dark); }
+        #new-check-form .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        #new-check-form .form-group { display: flex; flex-direction: column; }
+        #new-check-form .form-group.full-width { grid-column: 1 / -1; }
+        #new-check-form label { margin-bottom: 5px; font-weight: 600; color: var(--text-light); }
+        #new-check-form input, #new-check-form textarea { padding: 10px; font-size: 1em; border-radius: 5px; border: 1px solid var(--border-color); }
+        #new-check-form .error-message { color: var(--color-danger); font-size: 0.85em; margin-top: 5px; display: none; }
+        #new-check-form textarea { resize: vertical; min-height: 80px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 15px; margin-top: 30px; }
+        .modal-btn { padding: 10px 20px; font-size: 1em; font-weight: bold; cursor: pointer; border: none; border-radius: 5px; }
+        #modal-delete-btn { margin-right: auto; background-color: var(--color-danger); color: white; } #modal-delete-btn:hover { background-color: #c0392b; }
+        #modal-save-btn { background-color: var(--color-primary); color: white; } #modal-save-btn:hover { background-color: #2e59d9; }
+        #modal-cancel-btn { background-color: #e9ecef; color: var(--text-dark); } #modal-cancel-btn:hover { background-color: #ced4da; }
+        #export-csv-btn { background-color: var(--color-secondary); } #export-csv-btn:hover { background-color: #17a673; }
+        .table-container { width: 90%; max-width: 1400px; margin-top: 40px; padding: 20px; overflow: auto; max-height: 80vh; }
+        .table-header { text-align: center; }
+        .table-header h2 { color: var(--text-light); margin-bottom: 5px; }
+        .table-summary { color: var(--text-light); font-size: 0.9em; margin-bottom: 20px; }
+        #data-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.95em; }
+        #data-table th, #data-table td { padding: 15px 18px; border-bottom: 1px solid var(--border-color); text-align: center; white-space: nowrap; }
+        #data-table thead th { position: sticky; top: 0; z-index: 10; background-color: var(--bg-card); box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4); } /* Encabezado fijo */
+        #data-table th { color: var(--text-light); font-weight: 600; text-transform: uppercase; font-size: 0.8em; }
+        #data-table tbody tr { transition: background-color 0.3s ease; } /* Suaviza el cambio de color en hover */
+        #data-table tbody tr:nth-child(odd) { background-color: #f8f9fa; } /* Rayas de cebra (impar) */
+        #data-table tbody tr:nth-child(even) { background-color: #ffffff; } /* Rayas de cebra (par) */
+        #data-table tbody tr:hover { background-color: #eaf6ff; cursor: pointer; } /* Resaltado al pasar el cursor */
+        .text-right { text-align: right !important; }
+        .text-left { text-align: left !important; }
+        .editable-cell { cursor: pointer; position: relative; }
+        .editable-cell:hover::after { content: '✏️'; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 0.8em; opacity: 0.5; }
+        .inline-edit-input { width: 95%; padding: 8px; font-size: inherit; font-family: inherit; border: 2px solid var(--color-primary); border-radius: 4px; box-sizing: border-box; }
+        .condition-pill { padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 600; color: white; display: inline-block; }
+        .pill-paid { background-color: var(--color-success); }
+        .pill-overdue { background-color: var(--color-danger); }
+        .pill-due { background-color: var(--color-accent-1); }
+        .pagination-container { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; }
+        .pagination-btn { padding: 8px 16px; cursor: pointer; border: 1px solid #ccc; background-color: white; border-radius: 5px; }
+        .pagination-btn:disabled { cursor: not-allowed; background-color: #f8f8f8; }
+        #data-table th[data-sort-key] { cursor: pointer; }
+        #data-table th.sorted-asc::after, #data-table th.sorted-desc::after { content: ''; display: inline-block; margin-left: 5px; }
+        #data-table th.sorted-asc::after { content: ' ↑'; }
+                #data-table th.sorted-desc::after { content: ' ↓'; }
+        .status-paid { color: var(--color-success); font-weight: bold; }
+
+        .action-cell .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+        .action-cell .btn-icon:hover {
+            background-color: #e9ecef;
+        }
+        .action-cell .btn-icon svg {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .truncate {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: help;
+        }
+
+        .action-cell { display: flex; align-items: center; justify-content: center; gap: 10px; }
+        @keyframes row-fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #data-table tbody tr {
+            animation: row-fade-in 0.3s ease-out forwards;
+        }
+        @keyframes fade-out { from { background-color: #fffbe6; } to { background-color: transparent; } }
+        #data-table tbody tr.highlight {
+            animation: fade-out 3s ease-out forwards;
+            background-color: #fffbe6; /* Amarillo claro para resaltar */
+        }
+
+        .status-unpaid { color: var(--color-danger); font-weight: bold; }
+        #data-table tbody tr.due-soon:not(:hover) {
+            background-color: #fffbe6; /* Amarillo claro */
+        }
+        #data-table tbody tr.overdue-unpaid:not(:hover) {
+            background-color: #fdecea; /* Rojo claro */
+        }
+        #data-table tbody tr.overdue-unpaid td {
+            color: var(--color-danger);
+        }
+        #data-table tbody tr.overdue-unpaid .days-to-due {
+            font-weight: bold;
+        }
+        .condition-cell { font-weight: bold; }
+        @media print { body { background-color: white; } .dashboard-header, .control-panel, .table-container h2 { display: none; } .dashboard-grid, .metrics-container, .table-container { width: 100%; max-width: 100%; margin-top: 0; box-shadow: none; } }
+
+        /* --- Estilos de Notificaciones (Toast) --- */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            color: white;
+            font-weight: 600;
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideIn 0.5s forwards, fadeOut 0.5s 4.5s forwards;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toast.success { background-color: var(--color-success); }
+        .toast.error { background-color: var(--color-danger); }
+        .toast-icon { font-size: 1.2em; }
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+        @media (max-width: 1024px) { .control-panel { grid-template-columns: 1fr; } .dashboard-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { .metrics-container { grid-template-columns: 1fr 1fr; } .table-container { overflow-x: auto; } }
+        @media (max-width: 480px) { .metrics-container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <h1>Mando de Control de Cheques Emitidos G.S.A.</h1>
+        <p>Análisis y Visualización de Movimientos Financieros</p>
+    </div>
+    <div class="control-panel">
+        <div class="filters-group">
+            <select id="year-filter"><option value="">Año</option></select>
+            <select id="month-filter"><option value="">Mes</option></select>
+            <select id="bank-filter"><option value="">Banco</option></select>
+            <select id="category-filter"><option value="">Categoría</option></select>
+            <select id="group-filter"><option value="">Grupo de Gasto</option></select>
+        </div>
+        <div class="actions-group">
+            <input type="text" id="search-input" placeholder="Buscar o pedir un filtro (ej: 'vencen en 15 días')...">
+            <div class="buttons-container">
+                <button id="clear-filters-btn" class="action-btn">Limpiar</button>
+                <button id="new-check-btn" class="action-btn" style="background-color: var(--color-secondary);">+ Nuevo Cheque</button>
+                <button id="print-btn" class="action-btn">Imprimir</button>
+                <button id="export-csv-btn" class="action-btn">Exportar</button>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="unpaid-filter">
+                <label for="unpaid-filter">Ver solo no pagados</label>
+            </div>
+        </div>
+    </div>
+    <div id="active-filters-container" class="active-filters-container"></div>
+    <div class="metrics-container">
+        <div class="metric-card mc-importe">
+            <div class="metric-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            </div>
+            <div class="metric-content">
+                <div class="metric-header">
+                    <h3>Total de Importe</h3>
+                    <span class="kpi-comparison" id="total-importe-comp"></span>
+                </div>
+                <p id="total-importe">Calculando...</p>
+            </div>
+        </div>
+        <div class="metric-card mc-pagado">
+            <div class="metric-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <div class="metric-content">
+                <div class="metric-header">
+                    <h3>Total Pagado</h3>
+                    <span class="kpi-comparison" id="total-pagado-comp"></span>
+                </div>
+                <p id="total-pagado">...</p>
+            </div>
+        </div>
+        <div class="metric-card mc-saldo">
+            <div class="metric-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <div class="metric-content">
+                <div class="metric-header">
+                    <h3>Saldo Pendiente</h3>
+                    <span class="kpi-comparison" id="saldo-pendiente-comp"></span>
+                </div>
+                <p id="saldo-pendiente">...</p>
+            </div>
+        </div>
+        <div class="metric-card mc-cheques">
+            <div class="metric-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </div>
+            <div class="metric-content">
+                <div class="metric-header">
+                    <h3>Cheques Pendientes</h3>
+                    <span class="kpi-comparison" id="total-cheques-comp"></span>
+                </div>
+                <p id="total-cheques">...</p>
+            </div>
+        </div>
+        <div class="metric-card mc-vencido" id="kpi-vencido">
+            <div class="metric-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            <div class="metric-content">
+                <div class="metric-header">
+                    <h3>Total Vencido</h3>
+                    <span class="kpi-comparison" id="total-vencido-comp"></span>
+                </div>
+                <p id="total-vencido">...</p>
+            </div>
+        </div>
+    </div>
+    <div class="dashboard-grid">
+        <div class="chart-card">
+            <h2>Evolución de Importe y Pagos</h2>
+            <canvas id="evolucionChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <button id="gasto-chart-back-btn" class="chart-back-btn">❮</button>
+            <h2>Importes por Grupo de Gasto</h2>
+            <canvas id="grupoGastoImporteChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h2>Importe de Cheques a Vencer (Próximos 30 días)</h2>
+            <canvas id="vencimientoChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h2>Saldos Pendientes por Banco</h2>
+            <canvas id="saldosPorBancoChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h2>Proyección de Flujo de Caja (Próximos 6 meses)</h2>
+            <canvas id="proyeccionFlujoCajaChart"></canvas>
+        </div>
+        <div class="chart-card" id="aging-chart-card">
+            <h2>Antigüedad de Deuda Vencida</h2>
+            <canvas id="agingChart"></canvas>
+        </div>
+    </div>
+    <div class="table-container">
+        <table id="data-table">
+            <caption>
+                <h2>Vista Detallada de Datos</h2>
+                <p id="table-summary" class="table-summary">Cargando datos...</p>
+            </caption>
+            <thead>
+                <tr>
+                    <th data-sort-key="FECHA" class="editable-cell" data-key="FECHA">Fecha de Cheque</th>
+                    <th data-sort-key="DIAS_VTO">Días P/Vencimiento</th>
+                    <th data-sort-key="BANCO">Banco</th>
+                    <th data-sort-key="N° CHEQUE">Cheque N°</th>
+                    <th data-sort-key="OBSERVACION">Observaciones</th>
+                    <th data-sort-key="IMPORTE">Importe</th>
+                    <th data-sort-key="PAGADO">Pagado</th>
+                    <th data-sort-key="SALDO">Saldo</th>
+                    <th data-sort-key="FECHA DE PAGO">Fecha de Pago</th>
+                    <th data-sort-key="CONDICION">Condición</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="data-table-body"></tbody>
+        </table>
+        <div class="pagination-container" id="pagination-container"></div>
+    </div>
+    <div id="new-check-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="modal-title">Añadir Nuevo Cheque</h2>
+            <form id="new-check-form" novalidate autocomplete="off">
+                <input type="hidden" id="form-check-id" name="checkId">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="form-fecha">Fecha de Cheque</label>
+                        <input type="date" id="form-fecha" name="FECHA" required>
+                        <div class="error-message">Este campo es obligatorio.</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="form-importe">Importe</label>
+                        <input type="number" id="form-importe" name="IMPORTE" step="0.01" min="0.01" placeholder="Ej: 15000.50" required>
+                        <div class="error-message">El importe debe ser un número positivo.</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="form-banco">Banco</label>
+                        <input type="text" id="form-banco" name="BANCO" placeholder="Seleccione o escriba un banco" list="bank-list">
+                        <datalist id="bank-list"></datalist>
+                        <div class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="form-cheque-nro">Cheque N°</label>
+                        <input type="text" id="form-cheque-nro" name="N° CHEQUE" placeholder="Número del cheque">
+                        <div class="error-message"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="form-grupo-gasto">Grupo de Gasto</label>
+                        <input type="text" id="form-grupo-gasto" name="GRUPO DE GASTO" placeholder="Ej: Gastos Operacionales" list="group-list">
+                        <datalist id="group-list"></datalist>
+                        <div class="error-message"></div>
+                    </div>
+       
+                    </div>
+                    <div class="form-group">
+                        <label for="form-categoria">Categoría</label>
+                        <input type="text" id="form-categoria" name="CATEGORIA" placeholder="Ej: Sueldos" list="category-list">
+                        <datalist id="category-list"></datalist>
+                        <div class="error-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="form-talon-nro">Talón N°</label>
+                        <input type="text" id="form-talon-nro" name="TALON N°" placeholder="Número de Talón" list="talon-list">
+                        <datalist id="talon-list"></datalist>
+                        <div class="error-message"></div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="form-observacion">Observaciones</label>
+                        <textarea id="form-observacion" name="OBSERVACION" placeholder="Detalles adicionales..."></textarea>
+                        <div class="error-message"></div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="modal-delete-btn" class="modal-btn" style="display: none;">Eliminar Cheque</button>
+                    <button type="button" id="modal-cancel-btn" class="modal-btn">Cancelar</button>
+                    <button type="submit" id="modal-save-btn" class="modal-btn">Guardar Cheque</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
