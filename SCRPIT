@@ -1,0 +1,139 @@
+// Nombre de la hoja donde están los datos. ¡Asegúrate de que coincida con tu archivo!
+const SHEET_NAME = "Cheques"; 
+
+// --- FUNCIÓN PARA OBTENER DATOS (GET) ---
+function doGet(e) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift();
+    
+    const json = data.map((row, index) => {
+      let obj = { _id: index }; // Añadimos un _id basado en el índice de la fila (0-based)
+      headers.forEach((header, i) => {
+        if (row[i] instanceof Date) {
+          obj[header] = row[i].toISOString();
+        } else {
+          obj[header] = row[i];
+        }
+      });
+      return obj;
+    });
+    
+    return ContentService.createTextOutput(JSON.stringify(json))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, message: `Error en doGet: ${error.message}` }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// --- FUNCIÓN PARA MODIFICAR DATOS (POST) ---
+function doPost(e) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    const postData = JSON.parse(e.postData.contents);
+    
+    // Determinar la acción a realizar
+    if (postData.action === 'addCheck') {
+      return handleAddCheck(sheet, postData);
+    } else if (postData.action === 'updatePayment') {
+      return handleUpdatePayment(sheet, postData);
+    } else if (postData.action === 'editCheck') {
+      return handleEditCheck(sheet, postData);
+    } else if (postData.action === 'deleteCheck') { 
+      return handleDeleteCheck(sheet, postData);
+    } else {
+      throw new Error("Acción no reconocida.");
+    }
+
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, message: `Error en doPost: ${error.message}` }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// --- MANEJADOR PARA AÑADIR UN NUEVO CHEQUE ---
+function handleAddCheck(sheet, data) {
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const newRow = headers.map(header => {
+      if (header === 'PAGADO') return 0;
+      return data[header] || "";
+    });
+    sheet.appendRow(newRow);
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Cheque añadido correctamente." }))
+      .setMimeType(ContentService.MimeType.JSON);
+}
+
+// --- MANEJADOR PARA EDITAR UN CHEQUE EXISTENTE ---
+function handleEditCheck(sheet, data) {
+    const rowToUpdate = data.id + 2;
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    
+    const newRowData = headers.map(header => {
+        if (header === 'PAGADO' || header === 'FECHA DE PAGO') {
+            return sheet.getRange(rowToUpdate, headers.indexOf(header) + 1).getValue();
+        }
+        return data[header] !== undefined ? data[header] : sheet.getRange(rowToUpdate, headers.indexOf(header) + 1).getValue();
+    });
+
+    sheet.getRange(rowToUpdate, 1, 1, headers.length).setValues([newRowData]);
+
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Cheque actualizado correctamente." }))
+        .setMimeType(ContentService.MimeType.JSON);
+}
+
+// --- MANEJADOR PARA ELIMINAR UN CHEQUE ---
+function handleDeleteCheck(sheet, data) {
+    const rowToDelete = data.id + 2; 
+    
+    if (rowToDelete > sheet.getLastRow() || rowToDelete <= 1) {
+        throw new Error("ID de cheque inválido o fuera de rango.");
+    }
+
+    sheet.deleteRow(rowToDelete);
+
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Cheque eliminado correctamente." }))
+      .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// --- MANEJADOR PARA ACTUALIZAR EL PAGO DE UN CHEQUE (VERSIÓN MEJORADA) ---
+function handleUpdatePayment(sheet, data) {
+    const rowToUpdate = data.id + 2;
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const pagadoColIndex = headers.indexOf("PAGADO") + 1;
+    const importeColIndex = headers.indexOf("IMPORTE") + 1;
+    const fechaPagoColIndex = headers.indexOf("FECHA DE PAGO") + 1; 
+
+    if (pagadoColIndex === 0 || importeColIndex === 0) {
+      throw new Error("No se encontraron las columnas 'IMPORTE' o 'PAGADO'.");
+    }
+
+    if (data.isPaid) {
+      const importe = sheet.getRange(rowToUpdate, importeColIndex).getValue();
+      sheet.getRange(rowToUpdate, pagadoColIndex).setValue(importe);
+      if (fechaPagoColIndex > 0) {
+        sheet.getRange(rowToUpdate, fechaPagoColIndex).setValue(new Date());
+      }
+    } else {
+      sheet.getRange(rowToUpdate, pagadoColIndex).setValue(0);
+      if (fechaPagoColIndex > 0) {
+        sheet.getRange(rowToUpdate, fechaPagoColIndex).clearContent();
+      }
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: "Cheque actualizado." }))
+      .setMimeType(ContentService.MimeType.JSON);
+}
+
+// --- FUNCIÓN PARA PERMISOS CORS (¡MUY IMPORTANTE!) ---
+function doOptions(e) {
+  return ContentService.createTextOutput()
+    .setMimeType(ContentService.MimeType.JSON)
+    .withHeaders({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    });
+}
