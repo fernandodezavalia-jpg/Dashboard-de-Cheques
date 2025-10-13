@@ -35,16 +35,16 @@ function doPost(e) {
     const postData = JSON.parse(e.postData.contents);
     
     // Determinar la acción a realizar
-    if (postData.action === 'addCheck') {
+    if (postData && postData.action === 'addCheck') {
       return handleAddCheck(sheet, postData);
-    } else if (postData.action === 'updatePayment') {
+    } else if (postData && postData.action === 'updatePayment') {
       return handleUpdatePayment(sheet, postData);
-    } else if (postData.action === 'editCheck') {
+    } else if (postData && postData.action === 'editCheck') {
       return handleEditCheck(sheet, postData);
-    } else if (postData.action === 'deleteCheck') { 
+    } else if (postData && postData.action === 'deleteCheck') {
       return handleDeleteCheck(sheet, postData);
     } else {
-      throw new Error("Acción no reconocida.");
+      throw new Error("Acción no reconocida o datos inválidos.");
     }
 
   } catch (error) {

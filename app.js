@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbz4JTJqhqh_mugxBVHwB3lxb18hFd6QJeD4IdjM5aZ3ohUoZCeTnvic26QJ2mAAnUQSeQ/exec';
+const API_URL = 'YOUR_API_URL_HERE';
 let allData = [];
 let activeFilters = {};
 const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -146,6 +146,15 @@ function applyFilters(data) {
                 if ((itemDate.getMonth() + 1).toString() !== filterValue) isMatch = false;
             } else if (filterKey === 'NO_PAGADOS') {
                 if (filterValue === true && (parseFloat(item['PAGADO']) || 0) > 0) isMatch = false;
+            } else if (filterKey === 'VENCIMIENTO_15_DIAS') {
+                const today = new Date();
+                const dueDate = new Date(item['FECHA']);
+                const diffTime = dueDate - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const saldo = (parseFloat(item['IMPORTE']) || 0) - (parseFloat(item['PAGADO']) || 0);
+                if (!(diffDays >= 0 && diffDays <= 15 && saldo > 0.01)) {
+                    isMatch = false;
+                }
             } else if (filterKey === 'BUSQUEDA') {
                 const searchTerm = filterValue.toLowerCase();
                 const chequeNum = (item['N° CHEQUE'] || '').toString().toLowerCase();
@@ -983,20 +992,6 @@ function setupPaginationControls(fullData) {
     paginationContainer.append(prevButton, pageIndicator, nextButton);
 }
 
-function handleSearchInput(value) {
-    const lowerCaseValue = value.toLowerCase();
-
-    // Borrar filtros conflictivos
-    delete activeFilters['VENCIMIENTO_15_DIAS'];
-    delete activeFilters['BUSQUEDA'];
-
-    if (lowerCaseValue.includes('vencen en 15 días') || lowerCaseValue.includes('vencimiento 15 dias')) {
-        activeFilters['VENCIMIENTO_15_DIAS'] = true;
-    } else {
-        activeFilters['BUSQUEDA'] = value;
-    }
-    updateDashboard(applyFilters(allData));
-}
 
 function populateFilters(data) {
     const yearFilter = document.getElementById('year-filter');
