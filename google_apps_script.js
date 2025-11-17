@@ -1,3 +1,8 @@
+// Este es el código del backend que se ejecuta en Google Apps Script.
+// Debe ser copiado y pegado en el editor de scripts de tu hoja de cálculo de Google.
+// Asegúrate de que el nombre de la hoja (SHEET_NAME) coincida con el de tu documento.
+// Finalmente, despliega el script como una aplicación web para obtener la URL de la API.
+
 // Nombre de la hoja donde están los datos. ¡Asegúrate de que coincida con tu archivo!
 const SHEET_NAME = "Cheques"; 
 
