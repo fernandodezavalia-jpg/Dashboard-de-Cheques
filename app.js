@@ -1386,11 +1386,8 @@ function setupModalInteractions() {
                 closeModal();
                 showToast('Cheque eliminado con éxito.', 'success');
                 
-                // Eliminar el cheque de la data local y refrescar
-                const indexToRemove = allData.findIndex(c => c._id === parseInt(checkId, 10));
-                if (indexToRemove > -1) {
-                    allData.splice(indexToRemove, 1);
-                }
+                // Recargar los datos desde la API para asegurar la consistencia
+                allData = await fetchData();
                 updateDashboard(applyFilters(allData));
             }
         }
